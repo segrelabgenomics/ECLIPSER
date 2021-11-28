@@ -6,7 +6,7 @@ ECLIPSER tests whether the expression of genes mapped to GWAS loci of complex di
 
 Authors: Jiali Wang, John Rouhana, written in the Segre lab under the guidance of Ayellet Segre, Massachusetts Eye and Ear, Harvard Medical School, Boston, MA
 
-Contributors to code: Andrew Hamel, Brian Cole
+Contributors to code: Andrew Hamel, Brian Cole, Massachusetts Eye and Ear, Harvard Medical School
 
 Last updated: November 24, 2021
 
