@@ -1,0 +1,4 @@
+Barretts_esophagus	Oesophagitis/barretts oesophagus | non-cancer illness code, self-reported	Barrett's esophagus
+Esophageal_cancer	Esophageal cancer  (alcohol interaction)	Esophageal cancer	Esophageal cancer (squamous cell)
+Esophageal_adenocarcinoma	Esophageal adenocarcinoma
+Eosinophilic_esophagitis	Eosinophilic esophagitis (pediatric)	Eosinophilic esophagitis

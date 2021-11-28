@@ -1,0 +1,3 @@
+Esophageal_cancer	Esophageal cancer (alcohol interaction)	Esophageal cancer	Esophageal cancer (squamous cell)       
+Esophageal_adenocarcinoma	Esophageal adenocarcinoma
+Eosinophilic_esophagitis	Eosinophilic esophagitis (pediatric)	Eosinophilic esophagitis
