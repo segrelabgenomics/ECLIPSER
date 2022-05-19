@@ -1,4 +1,4 @@
-# Authors: John Rouhana, Jiali Wang
+# Authors: John Rouhana, Jiali Wang, Andrew Hamel
 # Segre lab, Massachusetts Eye and Ear, Harvard Medical School, Boston, MA
 # Date: April 2021
 
@@ -10,7 +10,7 @@ import os
 
 import time
 import re
-
+import pdb
 def str2bool(s):
     if str2bool=='True':
         return True
@@ -69,18 +69,39 @@ def main():
     variants_df['GWAS_p_value']=variants_df['GWAS_p_value'].astype(float)
     
     #Verify genome wide significance
-    variants_df = variants_df.loc[variants_df.GWAS_p_value < 5e-8].copy()
+    variants_df = variants_df.loc[variants_df.GWAS_p_value <= 5e-8].copy()
 
     #read in traits to use
     with open(sig_traits_in) as f:
         sig_traits = [x.split('\t') for x in f.read().splitlines()]
-       
+
     #Adjust GWAS names in table to reflect desired annotations
+    traits_dict = {}
+    #for trait_list in sig_traits:
+    #    for trait in trait_list[1:]:
+            #variants_df.loc[variants_df.trait == trait, 'trait'] = trait_list[0]
     for trait_list in sig_traits:
         for trait in trait_list[1:]:
-            variants_df.loc[variants_df.trait == trait, 'trait'] = trait_list[0]
-    
+            if trait in traits_dict:
+                traits_dict[trait].append(trait_list[0])
+            else:
+                traits_dict[trait] = [trait_list[0]]
+
+    # extract sig traits
     sig_traits = [x[0] for x in sig_traits]
+
+    # adding trait name column which are names of traits of interest
+    # trait_name -> GWAS name
+    # convert traits dict to df
+    traits_dict_df = pd.DataFrame(traits_dict.items(), columns=["trait", "trait_name"])
+
+    # merge and explode
+    # merging on trait -> GWAS not mapped to selective traits will be NA
+    # considered in null
+    variants_df = pd.merge(variants_df, traits_dict_df, on=["trait"], how="left")
+    variants_df = variants_df.explode("trait_name")
+    variants_df["trait_name"] = variants_df["trait_name"].fillna("Null")
+    variants_df = variants_df.reset_index(drop=True)
 
     #Narrow variants_df now to only include ancestry of interest
     if ancestry is not None:
@@ -89,7 +110,7 @@ def main():
         variants_df.reset_index(drop=True, inplace=True)
 
     #Separate by significant/not significant traits
-    sig_variants_df = variants_df.loc[variants_df.trait.isin(sig_traits)].copy()
+    sig_variants_df = variants_df.loc[variants_df.trait_name.isin(sig_traits)].copy()
     remainder_variants_df = variants_df.loc[~(variants_df.index.isin(sig_variants_df.index))].copy()
     #Remove significant GWAS variants from null set
     null_variants_df = remainder_variants_df.loc[~(remainder_variants_df.GWAS_variant.isin(sig_variants_df.GWAS_variant))].copy()
@@ -163,7 +184,7 @@ def main():
        
     print("Clumping null traits...")
     null_sub_proxy_clumps, null_sub_eGene_clumps, null_all_clumps = clumping_processes(proxy_df, null_variants_df, sub_eGene_df, all_traits_are_one = 'Null')
-
+    print(null_sub_proxy_clumps)
 
     value = next(iter(null_sub_proxy_clumps)) 
     null_all_df = pd.DataFrame({value:[val for val in null_all_clumps['Null'] if val]})
@@ -189,14 +210,14 @@ def clumping_processes(proxy_df, variants_df, sub_eGene_df, all_traits_are_one =
     sub_proxy_df = proxy_df_ld[['GWAS_variant', 'LD_variant']].drop_duplicates().copy()
     sub_proxy_df.drop_duplicates(inplace=True)
     if type(all_traits_are_one) is str:
-        variants_df['real_trait'] = variants_df.trait
-        variants_df['trait'] = all_traits_are_one
+        variants_df['real_trait'] = variants_df.trait_name
+        variants_df['trait_name'] = all_traits_are_one
     ld_clumps = {}
 
     #clump by trait
-    for trait in variants_df.trait.drop_duplicates().values:
+    for trait in variants_df.trait_name.drop_duplicates().values: # trait_name
         print(trait)
-        sub_variants_df = variants_df.loc[variants_df.trait==trait].copy()
+        sub_variants_df = variants_df.loc[variants_df.trait_name==trait].copy()
         #cluster by proxy variants
         sub_proxy_df_ld = sub_proxy_df.loc[sub_proxy_df.LD_variant.isin(sub_variants_df.GWAS_variant)].copy()
         #Change data types to fit consolidate function
@@ -212,13 +233,15 @@ def clumping_processes(proxy_df, variants_df, sub_eGene_df, all_traits_are_one =
     #Get GWAS_variant
     sub_eGene_df = sub_eGene_df[['GWAS_variant', 'gene_name']].copy()
     sub_eGene_df.drop_duplicates(inplace=True)
-    traits_eGene_df = sub_eGene_df.merge(variants_df[['GWAS_variant', 'trait']].copy(), on='GWAS_variant').copy().drop_duplicates()
+    # changed merge trait -> trait_name
+    traits_eGene_df = sub_eGene_df.merge(variants_df[['GWAS_variant', 'trait_name']].copy(), on='GWAS_variant').copy().drop_duplicates()
     #cluster by eGene
     egene_clumps = {}
-    for trait in variants_df.trait.drop_duplicates().values:
+    for trait in variants_df.trait_name.drop_duplicates().values:
 
         #get trait relevant lines
-        sub_egene_df = traits_eGene_df.loc[traits_eGene_df.trait == trait][['GWAS_variant', 'gene_name']].drop_duplicates().dropna().copy()
+        # CHANGED HERE
+        sub_egene_df = traits_eGene_df.loc[traits_eGene_df.trait_name == trait][['GWAS_variant', 'gene_name']].drop_duplicates().dropna().copy()
         #change data to fit consolidate function
         #verify df not empty
         if not sub_egene_df.empty:
@@ -231,7 +254,7 @@ def clumping_processes(proxy_df, variants_df, sub_eGene_df, all_traits_are_one =
 
     #merge LD and eGene clumps by trait
     final_clumps = {} 
-    for trait in variants_df.trait.drop_duplicates().values:
+    for trait in variants_df.trait_name.drop_duplicates().values:
         #Verify both values have key
         if ((trait in ld_clumps) & (trait in egene_clumps)):
             final_clumps[trait] = consolidate(ld_clumps[trait]+egene_clumps[trait])
